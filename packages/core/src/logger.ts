@@ -5,7 +5,7 @@ import { Middleware } from "./index";
  * Useful for debugging "shit" in development.
  */
 export const createLoggerMiddleware = (): Middleware => {
-  return async ({ service, endpoint, options }, next) => {
+  return async ({ service, endpoint, options, config }, next) => {
     const start = Date.now();
     const requestId = Math.random().toString(36).substring(7);
 
@@ -13,8 +13,9 @@ export const createLoggerMiddleware = (): Middleware => {
     console.log(
       "%cMethod:",
       "color: #3b82f6; font-weight: bold;",
-      options.method || "GET",
+      config.method,
     );
+    console.log("%cURL:", "color: #3b82f6;", config.path);
     console.log("%cOptions:", "color: #6366f1;", options);
     console.groupEnd();
 
@@ -35,11 +36,24 @@ export const createLoggerMiddleware = (): Middleware => {
       console.group(
         `❌ API ERROR [${requestId}]: ${service}.${endpoint} (${duration}ms)`,
       );
-      console.log(
-        "%cError:",
-        "color: #ef4444; font-weight: bold;",
-        error.message,
-      );
+
+      if (error.name === "ApiError") {
+        console.log(
+          "%cStatus:",
+          "color: #ef4444; font-weight: bold;",
+          error.status,
+          error.statusText,
+        );
+        console.log("%cError Body:", "color: #f87171;", error.data);
+      } else {
+        console.log(
+          "%cMessage:",
+          "color: #ef4444; font-weight: bold;",
+          error.message,
+        );
+        console.log("%cFull Error:", "color: #f87171;", error);
+      }
+
       console.groupEnd();
 
       throw error;

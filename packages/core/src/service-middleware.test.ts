@@ -81,6 +81,31 @@ describe("Service-Level Middleware", () => {
     expect(global.fetch).toHaveBeenCalledWith(
       expect.stringContaining("/legacy"),
       expect.anything(),
-    );
+  it("should throw ApiError with status and data on failed request", async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: false,
+      status: 404,
+      statusText: "Not Found",
+      json: () => Promise.resolve({ message: "User not found" }),
+    });
+
+    const api = createApi({
+      baseUrl: "https://api.test.com",
+      services: {
+        users: {
+          get: { method: "GET", path: "/users/1" },
+        },
+      },
+    });
+
+    try {
+      await api.users.get();
+      expect.fail("Should have thrown ApiError");
+    } catch (error: any) {
+      expect(error.name).toBe("ApiError");
+      expect(error.status).toBe(404);
+      expect(error.data).toEqual({ message: "User not found" });
+      expect(error.message).toBe("User not found");
+    }
   });
 });

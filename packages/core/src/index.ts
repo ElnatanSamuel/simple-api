@@ -1,5 +1,16 @@
 export type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
 
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    public statusText: string,
+    public data: any,
+  ) {
+    super(data?.message || `API Error: ${status} ${statusText}`);
+    this.name = "ApiError";
+  }
+}
+
 export interface RequestOptions extends Omit<RequestInit, "body"> {
   params?: Record<string, string | number>;
   query?: Record<string, any>;
@@ -121,9 +132,10 @@ export function createApi<
 
                   if (!response.ok) {
                     const errorBody = await response.json().catch(() => ({}));
-                    throw new Error(
-                      errorBody.message ||
-                        `API Error: ${response.status} ${response.statusText}`,
+                    throw new ApiError(
+                      response.status,
+                      response.statusText,
+                      errorBody,
                     );
                   }
 
