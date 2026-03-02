@@ -82,6 +82,31 @@ const api = createApi({
 });
 ```
 
+### Service-Level Middleware
+
+You can also apply middleware to all endpoints within a specific service:
+
+```typescript
+const api = createApi({
+  baseUrl: "...",
+  services: {
+    auth: {
+      middleware: [authGuardMiddleware],
+      endpoints: {
+        profile: { method: "GET", path: "/me" },
+        settings: { method: "PATCH", path: "/settings" },
+      },
+    },
+    public: {
+      // Direct record of endpoints also still works!
+      search: { method: "GET", path: "/search" },
+    },
+  },
+});
+```
+
+The execution order is always: **Global -> Service -> Endpoint**.
+
 ### Writing Custom Middleware
 
 ```typescript

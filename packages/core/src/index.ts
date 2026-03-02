@@ -29,22 +29,35 @@ export type Middleware = (
   next: (options: RequestOptions) => Promise<any>,
 ) => Promise<any>;
 
+export interface ServiceConfig {
+  endpoints: Record<string, EndpointConfig>;
+  middleware?: Middleware[];
+}
+
+export type ServiceEndpoints = Record<string, EndpointConfig>;
+
 /**
  * The core API factory that generates a structured engine from service definitions.
  */
 export function createApi<
-  T extends Record<string, Record<string, EndpointConfig>>,
+  T extends Record<string, ServiceEndpoints | ServiceConfig>,
 >(config: { baseUrl: string; middleware?: Middleware[]; services: T }) {
   const rootMiddleware = config.middleware || [];
   const inflightRequests = new Map<string, Promise<any>>();
 
   return Object.entries(config.services).reduce(
-    (acc, [serviceName, endpoints]) => {
+    (acc, [serviceName, serviceConfig]) => {
+      const isServiceConfig = "endpoints" in serviceConfig;
+      const endpoints = isServiceConfig
+        ? (serviceConfig as ServiceConfig).endpoints
+        : (serviceConfig as ServiceEndpoints);
+      const serviceMiddleware = isServiceConfig
+        ? (serviceConfig as ServiceConfig).middleware || []
+        : [];
+
       acc[serviceName] = Object.entries(endpoints).reduce(
         (eAcc, [endpointName, endpoint]) => {
-          // We store the original config for adapters to use (e.g. for method checking)
           const executor = async (options: RequestOptions = {}) => {
-            // ... (path param and URL logic remains same)
             let path = endpoint.path;
             if (options.params) {
               Object.entries(options.params).forEach(([key, value]) => {
@@ -65,7 +78,6 @@ export function createApi<
 
             const requestKey = `${endpoint.method}:${url.toString()}:${JSON.stringify(options.body)}`;
 
-            // 4. Base Fetch Executor (with deduplication for GET)
             const execute = async (currentOptions: RequestOptions) => {
               if (endpoint.method === "GET") {
                 const existing = inflightRequests.get(requestKey);
@@ -109,9 +121,10 @@ export function createApi<
               return fetchPromise;
             };
 
-            // 5. Middleware Pipeline Execution (Global -> Endpoint)
+            // Pipeline: Global -> Service -> Endpoint
             const allMiddleware = [
               ...rootMiddleware,
+              ...serviceMiddleware,
               ...(endpoint.middleware || []),
             ];
 
@@ -126,7 +139,7 @@ export function createApi<
                     config: endpoint,
                     options: opts,
                   },
-                  runner,
+                  getRunnerWithFallback(runner, opts),
                 );
               }
               return execute(opts);
@@ -135,9 +148,7 @@ export function createApi<
             return runner(options);
           };
 
-          // Expose config for adapters
           (executor as any)._config = endpoint;
-
           eAcc[endpointName] = executor;
           return eAcc;
         },
@@ -146,7 +157,15 @@ export function createApi<
       return acc;
     },
     {} as any,
-  ) as any; // Type inference could be improved here for production
+  ) as any;
+}
+
+// Helper to ensure next is called with newest options but maintains runner state
+function getRunnerWithFallback(
+  runner: (opts: RequestOptions) => Promise<any>,
+  initialOpts: RequestOptions,
+) {
+  return (newOpts?: RequestOptions) => runner(newOpts || initialOpts);
 }
 
 export * from "./logger";
