@@ -1,6 +1,6 @@
 {
   "name": "@simple-api/zustand",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Zustand synchronization middleware for SimpleAPI Engine",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

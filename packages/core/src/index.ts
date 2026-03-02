@@ -36,21 +36,42 @@ export interface ServiceConfig {
 
 export type ServiceEndpoints = Record<string, EndpointConfig>;
 
+export type ApiEngine<T> = {
+  [K in keyof T]: T[K] extends ServiceConfig
+    ? {
+        [E in keyof T[K]["endpoints"]]: (
+          options?: RequestOptions,
+        ) => Promise<any>;
+      }
+    : T[K] extends ServiceEndpoints
+      ? {
+          [E in keyof T[K]]: (options?: RequestOptions) => Promise<any>;
+        }
+      : never;
+};
+
 /**
  * The core API factory that generates a structured engine from service definitions.
  */
 export function createApi<
   T extends Record<string, ServiceEndpoints | ServiceConfig>,
->(config: { baseUrl: string; middleware?: Middleware[]; services: T }) {
+>(config: {
+  baseUrl: string;
+  middleware?: Middleware[];
+  services: T;
+}): ApiEngine<T> {
   const rootMiddleware = config.middleware || [];
   const inflightRequests = new Map<string, Promise<any>>();
 
   return Object.entries(config.services).reduce(
     (acc, [serviceName, serviceConfig]) => {
-      const isServiceConfig = "endpoints" in serviceConfig;
+      const isServiceConfig =
+        "endpoints" in serviceConfig && !!(serviceConfig as any).endpoints;
+
       const endpoints = isServiceConfig
         ? (serviceConfig as ServiceConfig).endpoints
         : (serviceConfig as ServiceEndpoints);
+
       const serviceMiddleware = isServiceConfig
         ? (serviceConfig as ServiceConfig).middleware || []
         : [];
@@ -78,7 +99,7 @@ export function createApi<
 
             const requestKey = `${endpoint.method}:${url.toString()}:${JSON.stringify(options.body)}`;
 
-            const execute = async (currentOptions: RequestOptions) => {
+            const execute = async (currentOptions: RequestOptions = {}) => {
               if (endpoint.method === "GET") {
                 const existing = inflightRequests.get(requestKey);
                 if (existing) return existing;
@@ -157,7 +178,7 @@ export function createApi<
       return acc;
     },
     {} as any,
-  ) as any;
+  ) as ApiEngine<T>;
 }
 
 // Helper to ensure next is called with newest options but maintains runner state

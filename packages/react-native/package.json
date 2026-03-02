@@ -1,6 +1,6 @@
 {
   "name": "@simple-api/react-native",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "React Native adapter for SimpleAPI Engine",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

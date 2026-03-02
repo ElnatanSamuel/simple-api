@@ -29,15 +29,6 @@ export const api = createApi({
     createLoggerMiddleware(),
     createTransformerMiddleware(), // snake_case <-> camelCase
     createRetryMiddleware({ maxRetries: 2 }), // Auto-retry on failure
-    // Auth Middleware
-    async ({ options }, next) => {
-      const token = "MOCK_TOKEN"; // In reality, get from store
-      options.headers = {
-        ...options.headers,
-        Authorization: `Bearer ${token}`,
-      };
-      return next(options);
-    },
     // Zustand Sync Middleware (MOCK)
     createZustandMiddleware({
       auth: {
@@ -46,7 +37,19 @@ export const api = createApi({
     }),
   ],
   services: {
-    auth: authService,
+    auth: {
+      middleware: [
+        async ({ options }, next) => {
+          const token = "MOCK_TOKEN"; // In reality, get from store
+          options.headers = {
+            ...options.headers,
+            Authorization: `Bearer ${token}`,
+          };
+          return next(options);
+        },
+      ],
+      endpoints: authService,
+    },
     accounts: accountService,
     transactions: transactionService,
   },
