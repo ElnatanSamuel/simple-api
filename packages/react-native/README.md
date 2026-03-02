@@ -1,80 +1,100 @@
-# @simple-api/react-native 📱
+# @simple-api/react-native
 
 **The mobile-optimized adapter for simple-api.**
 
-`@simple-api/react-native` is a thin wrapper around `@simple-api/react`, specially tuned for mobile development. It ensures your API engine performs optimally in the React Native environment, with planned support for NetInfo and offline storage.
+@simple-api/react-native is a specialized wrapper around @simple-api/react, specifically tuned for the mobile environment. It ensures that your API engine performs optimally on iOS and Android devices, focusing on battery efficiency and shared logic.
 
-## ✨ Key Features
+## Key Features
 
-- **🔋 Battery Efficient**: Inherits core engine's deduplication to minimize radio usage.
-- **🔌 Mobile Ready**: Pre-configured for common React Native fetch patterns.
-- **💎 Extreme Type Safety**: Shared definitions between your web and mobile apps.
-- **⚡ Fast Response**: Minimal overhead over raw fetch.
+- **Battery Efficient**: Leverages the core engine's request deduplication to minimize radio usage and preserve battery life.
+- **Mobile Optimized**: Pre-configured defaults for React Native fetch patterns and environmental constraints.
+- **Shared Architecture**: Use the exact same API definitions for both your web and mobile applications.
+- **Zero Overhead**: Adds almost no weight over raw fetch, keeping your app bundle lean.
 
-## 📦 Installation
+## Installation
 
 ```bash
 npm install @simple-api/react-native @simple-api/core @tanstack/react-query
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Unified API Definition
 
-One of the greatest strengths of `simple-api` is sharing your API definition between Web and Mobile:
+One of the greatest strengths of simple-api is sharing your API definition between Web and Mobile:
 
 ```typescript
-// shared-api.ts
+// shared/api.ts
 import { createApi } from "@simple-api/core";
 
 export const apiDefinition = createApi({
   baseUrl: "https://api.myapp.com",
-  services: { ... }
+  services: {
+    auth: {
+      login: { method: "POST", path: "/auth/login" },
+    },
+    content: {
+      list: { method: "GET", path: "/items" },
+    },
+  },
 });
 ```
 
 ### 2. Mobile-Specific Adapter
 
 ```tsx
-// hooks.tsx (Mobile)
+// hooks/useApi.ts (Mobile Project)
 import { createReactAdapter } from "@simple-api/react-native";
-import { apiDefinition } from "./shared-api";
+import { apiDefinition } from "../shared/api";
 
 export const useMobileApi = createReactAdapter(apiDefinition);
 ```
 
-### 3. Usage in Screen Components
+### 3. Usage in Screens
 
 ```tsx
 import React from "react";
 import { View, Text, ActivityIndicator } from "react-native";
-import { useMobileApi } from "./hooks";
+import { useMobileApi } from "../hooks/useApi";
 
-export const UserScreen = ({ userId }) => {
-  const { users } = useMobileApi();
-  const { data, isLoading } = users().get({ params: { id: userId } });
+export const FeedScreen = () => {
+  const { content } = useMobileApi();
+  const { data, isLoading, error } = content().list();
 
-  if (isLoading) return <ActivityIndicator />;
+  if (isLoading) return <ActivityIndicator color="#0000ff" />;
+  if (error) return <Text>Error loading items</Text>;
 
   return (
     <View>
-      <Text>Name: {data.name}</Text>
+      {data.map((item) => (
+        <Text key={item.id}>{item.title}</Text>
+      ))}
     </View>
   );
 };
 ```
 
-## 🧠 Mobile Best Practices
+## Mobile Best Practices
 
-### Network State
+### Network Reliability
 
-While the core engine handles retries, on mobile you should frequently use `hookOptions` to control behavior based on network connectivity:
+Mobile networks are often flaky. We recommend using the `createRetryMiddleware` in your core definition:
 
 ```typescript
-users().list({
+import { createRetryMiddleware } from "@simple-api/core";
+
+// In your shared api definition:
+middleware: [createRetryMiddleware({ maxRetries: 3 })];
+```
+
+### Response Caching
+
+Use `hookOptions` in your screens to control how long data stays in memory:
+
+```typescript
+content().list({
   hookOptions: {
-    retry: 2,
-    staleTime: 0,
+    staleTime: 1000 * 60 * 5, // 5 minutes
     gcTime: 1000 * 60 * 60, // Keep in memory for 1 hour
   },
 });
@@ -82,8 +102,8 @@ users().list({
 
 ### Request Cancellation
 
-When a mobile user navigates away from a screen, TanStack Query (which powers this adapter) automatically handles request cancellation through AbortController, staying battery-efficient.
+When a user navigates away from a screen, this adapter (powered by TanStack Query) automatically cancels pending network requests using AbortController, ensuring your app stays responsive and battery-efficient.
 
-## 📄 License
+## License
 
 MIT © Elnatan Samuel

@@ -1,39 +1,37 @@
-# @simple-api/zustand 🐻
+# @simple-api/zustand
 
 **Seamless API-to-Store synchronization for simple-api.**
 
-`@simple-api/zustand` provides a specialized middleware that pipes API responses directly into your Zustand stores. It eliminates the boilerplate of manually fetching data and updating store states.
+@simple-api/zustand provides a specialized middleware that pipes API responses directly into your Zustand stores. It eliminates the boilerplate of manually fetching data and explicitly calling store update functions.
 
-## ✨ Key Features
+## Key Features
 
-- **🔄 Auto-Dispatch**: API responses are automatically injected into your store.
-- **🎯 Key Mapping**: Map specific API endpoints to specific store keys.
-- **🛡️ Type Safety**: Guaranteed types for partial state updates.
-- **⚡ Reactive**: Your UI updates instantly as the API returns data.
+- **Auto-Dispatch**: API responses are automatically injected into your store upon successful request completion.
+- **Key Mapping**: Map specific API calls to designated store keys for granular state management.
+- **Type Safety**: Full TypeScript support ensures that the data being injected matches your store state.
+- **Reactive Updates**: Your UI components react instantly to API returns without extra code.
 
-## 📦 Installation
+## Installation
 
 ```bash
 npm install @simple-api/zustand @simple-api/core zustand
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Define your Store
 
 ```typescript
 import { create } from "zustand";
 
-interface AuthState {
-  user: any;
-  isAuthenticated: boolean;
-  setUser: (user: any) => void;
+interface UserState {
+  profile: any;
+  setProfile: (profile: any) => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  isAuthenticated: false,
-  setUser: (user) => set({ user, isAuthenticated: true }),
+export const useUserStore = create<UserState>((set) => ({
+  profile: null,
+  setProfile: (profile) => set({ profile }),
 }));
 ```
 
@@ -42,21 +40,21 @@ export const useAuthStore = create<AuthState>((set) => ({
 ```typescript
 import { createApi } from "@simple-api/core";
 import { createZustandMiddleware } from "@simple-api/zustand";
-import { useAuthStore } from "./store";
+import { useUserStore } from "./store";
 
 const api = createApi({
-  baseUrl: "...",
+  baseUrl: "https://api.example.com",
   middleware: [
     createZustandMiddleware({
       stores: {
-        // Map the "auth" key to our store's update function
-        auth: (data) => useAuthStore.getState().setUser(data),
+        // Map the "userProfile" key to our store's update function
+        userProfile: (data) => useUserStore.getState().setProfile(data),
       },
     }),
   ],
   services: {
-    auth: {
-      login: { method: "POST", path: "/login" },
+    users: {
+      get: { method: "GET", path: "/me" },
     },
   },
 });
@@ -65,35 +63,39 @@ const api = createApi({
 ### 3. Trigger & Sync
 
 ```typescript
-// When this call completes, the auth store is updated automatically!
-await api.auth.login({
-  body: { email, password },
-  storeKey: "auth", // This key matches the middleware config
+// When this call succeeds, the Zustand store is updated automatically.
+// The engine handles the 'await' and 'dispatch' logic for you.
+await api.users.get({
+  storeKey: "userProfile", // This key must match the middleware config
 });
 ```
 
-## 🛠 Usage Patterns
+## Usage Patterns
 
-### Optimistic UI (Manual)
+### Selective Synchronization
 
-The middleware triggers _after_ the request succeeds. For optimistic UI, we recommend updating the store manually before the call and using the middleware for the final source of truth.
+You don't have to sync every request. Only provide a `storeKey` when you want the response data to be persisted in your state management layer.
 
-### Global Loading States
+### Loading States
 
-You can use the middleware to toggle global loading flags in your store:
+You can use the middleware to toggle global loading flags:
 
 ```typescript
 createZustandMiddleware({
   stores: {
-    loading: (isLoading) => useGlobalStore.getState().setLoading(isLoading),
+    globalLoader: (isLoading) => useUIStore.getState().setLoading(isLoading),
   },
 });
 ```
 
-## 🧠 Why use this?
+### Error Handling
 
-State management often involves a lot of "Fetch -> Await -> Store.Update" boilerplate. This middleware abstracts that into a single `storeKey` property in your request options, making your business logic much cleaner.
+The middleware only triggers on successful requests. If the API returns an error, the store remains untouched, and you can handle the error via a `try/catch` block or the `ApiError` class.
 
-## 📄 License
+## Why use this middleware?
+
+In modern applications, state management can become a heavy layer of "Fetch -> Await -> Dispatch" boilerplate. This middleware abstracts that cycle, allowing your API engine to communicate directly with your stores based on simple configuration keys.
+
+## License
 
 MIT © Elnatan Samuel
