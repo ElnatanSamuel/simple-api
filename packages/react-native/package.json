@@ -1,0 +1,29 @@
+{
+  "name": "@simple-api/react-native",
+  "version": "1.0.0",
+  "description": "React Native adapter for SimpleAPI Engine",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean"
+  },
+  "dependencies": {
+    "@simple-api/react": "*"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-native": "*"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0"
+  }
+}

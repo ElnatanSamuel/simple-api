@@ -1,0 +1,20 @@
+{
+  "name": "simple-api",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "vaultpay": "npm run dev --workspace apps/vaultpay",
+    "publish-all": "npm run build && npm publish --access public --workspaces",
+    "version-bump": "npm version patch --workspaces && git add . && git commit -m 'chore: bump versions'"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^4.0.18"
+  }
+}

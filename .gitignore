@@ -1,0 +1,17 @@
+# Build & Deps
+node_modules
+dist
+.turbo
+.next
+
+# Testing
+coverage
+test-results
+
+# Environment
+.env*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db

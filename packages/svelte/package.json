@@ -1,0 +1,29 @@
+{
+  "name": "@simple-api/svelte",
+  "version": "1.0.0",
+  "description": "Svelte TanStack Query adapter for SimpleAPI Engine",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean"
+  },
+  "dependencies": {
+    "@simple-api/core": "*"
+  },
+  "peerDependencies": {
+    "@tanstack/svelte-query": "^5.0.0",
+    "svelte": "^4.0.0 || ^5.0.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0"
+  }
+}

@@ -1,0 +1,16 @@
+# Development
+apps/
+tests/
+scripts/
+.github/
+.vscode/
+
+# Config
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+vitest.config.ts
+
+# Source
+**/src/**
+!**/dist/**
