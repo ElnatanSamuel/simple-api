@@ -42,7 +42,16 @@ export function createReactAdapter<
                 // Handle complex invalidation
                 if (options?.invalidates) {
                   options.invalidates.forEach((key) => {
-                    queryClient.invalidateQueries({ queryKey: [key] });
+                    if (key.endsWith("/*")) {
+                      const prefix = key.replace("/*", "");
+                      queryClient.invalidateQueries({
+                        predicate: (query) =>
+                          Array.isArray(query.queryKey) &&
+                          query.queryKey[0] === prefix,
+                      });
+                    } else {
+                      queryClient.invalidateQueries({ queryKey: [key] });
+                    }
                   });
                 }
                 if (options?.hookOptions?.onSuccess) {

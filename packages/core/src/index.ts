@@ -17,8 +17,23 @@ export interface RequestOptions extends Omit<RequestInit, "body"> {
   body?: any;
   baseUrl?: string;
   headers?: Record<string, string>;
+  timeout?: number; // Auto-abort after N milliseconds
+  pollingInterval?: number; // Re-fetch every N milliseconds
+  upload?: boolean; // Automatically convert body to FormData
   storeKey?: string; // For Zustand integration
   storeSetter?: (store: any, data: any) => void;
+}
+
+/**
+ * Interceptors allow global request/response/error hooks without
+ * sitting in the middleware pipeline. Attach them to createApi config.
+ */
+export interface ApiInterceptors {
+  onRequest?: (
+    context: MiddlewareContext,
+  ) => RequestOptions | void | Promise<RequestOptions | void>;
+  onResponse?: (data: any, context: MiddlewareContext) => any | Promise<any>;
+  onError?: (error: Error, context: MiddlewareContext) => void | Promise<void>;
 }
 
 export interface EndpointConfig {
@@ -69,9 +84,11 @@ export function createApi<
 >(config: {
   baseUrl: string;
   middleware?: Middleware[];
+  interceptors?: ApiInterceptors;
   services: T;
 }): ApiEngine<T> {
   const rootMiddleware = config.middleware || [];
+  const interceptors = config.interceptors || {};
   const inflightRequests = new Map<string, Promise<any>>();
 
   return Object.entries(config.services).reduce(
@@ -117,30 +134,106 @@ export function createApi<
               }
 
               const fetchPromise = (async () => {
+                // Run onRequest interceptor
+                const ctx: MiddlewareContext = {
+                  service: serviceName,
+                  endpoint: endpointName,
+                  config: endpoint,
+                  options: currentOptions,
+                };
+                if (interceptors.onRequest) {
+                  const modified = await interceptors.onRequest(ctx);
+                  if (modified) currentOptions = modified;
+                }
+
+                // Build AbortController for timeout support
+                const controller = new AbortController();
+                const timeoutMs = currentOptions.timeout;
+                let timeoutId: ReturnType<typeof setTimeout> | undefined;
+                if (timeoutMs) {
+                  timeoutId = setTimeout(
+                    () =>
+                      controller.abort(
+                        `Request timed out after ${timeoutMs}ms`,
+                      ),
+                    timeoutMs,
+                  );
+                }
+
                 try {
+                  let body: any = currentOptions.body;
+                  let headers: Record<string, string> = {
+                    "Content-Type": "application/json",
+                    ...currentOptions.headers,
+                  };
+
+                  if (
+                    currentOptions.upload &&
+                    body &&
+                    typeof body === "object"
+                  ) {
+                    const formData = new FormData();
+                    Object.entries(body).forEach(([key, value]) => {
+                      if (value instanceof FileList) {
+                        Array.from(value).forEach((file) =>
+                          formData.append(key, file),
+                        );
+                      } else if (
+                        value instanceof File ||
+                        value instanceof Blob
+                      ) {
+                        formData.append(key, value);
+                      } else {
+                        formData.append(key, String(value));
+                      }
+                    });
+                    body = formData;
+                    // Delete Content-Type to let the browser set it with boundary
+                    delete headers["Content-Type"];
+                  } else if (body) {
+                    body = JSON.stringify(body);
+                  }
+
                   const response = await fetch(url.toString(), {
                     ...currentOptions,
+                    signal: currentOptions.signal ?? controller.signal,
                     method: endpoint.method,
-                    body: currentOptions.body
-                      ? JSON.stringify(currentOptions.body)
-                      : undefined,
-                    headers: {
-                      "Content-Type": "application/json",
-                      ...currentOptions.headers,
-                    },
+                    body,
+                    headers,
                   });
 
                   if (!response.ok) {
                     const errorBody = await response.json().catch(() => ({}));
-                    throw new ApiError(
+                    const err = new ApiError(
                       response.status,
                       response.statusText,
                       errorBody,
                     );
+                    if (interceptors.onError)
+                      await interceptors.onError(err, ctx);
+                    throw err;
                   }
 
-                  return await response.json();
+                  let data = await response.json();
+                  if (interceptors.onResponse)
+                    data = (await interceptors.onResponse(data, ctx)) ?? data;
+
+                  // Handle Polling
+                  if (currentOptions.pollingInterval) {
+                    setTimeout(
+                      () => executor(currentOptions),
+                      currentOptions.pollingInterval,
+                    );
+                  }
+
+                  return data;
+                } catch (err: any) {
+                  if (interceptors.onError && !(err instanceof ApiError)) {
+                    await interceptors.onError(err, ctx);
+                  }
+                  throw err;
                 } finally {
+                  if (timeoutId) clearTimeout(timeoutId);
                   if (endpoint.method === "GET") {
                     inflightRequests.delete(requestKey);
                   }
@@ -205,3 +298,5 @@ export * from "./logger";
 export * from "./transformers";
 export * from "./retry";
 export * from "./mock";
+export * from "./pagination";
+export * from "./cache";
