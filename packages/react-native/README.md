@@ -1,15 +1,23 @@
+<p align="center">
+  <img src="../../public/logo.png" width="200" alt="simple-api logo">
+</p>
+
 # @simple-api/react-native
 
 **The mobile-optimized adapter for simple-api.**
 
-@simple-api/react-native is a specialized wrapper around @simple-api/react, specifically tuned for the mobile environment. It ensures that your API engine performs optimally on iOS and Android devices, focusing on battery efficiency and shared logic.
+@simple-api/react-native is a specialized wrapper around @simple-api/react, tuned for the mobile environment. It ensures that your API engine performs optimally on iOS and Android devices, focusing on battery efficiency, connectivity resilience, and shared logic.
+
+---
 
 ## Key Features
 
-- **Battery Efficient**: Leverages the core engine's request deduplication to minimize radio usage and preserve battery life.
-- **Mobile Optimized**: Pre-configured defaults for React Native fetch patterns and environmental constraints.
-- **Shared Architecture**: Use the exact same API definitions for both your web and mobile applications.
-- **Zero Overhead**: Adds almost no weight over raw fetch, keeping your app bundle lean.
+- **Offline Queue**: mutation persistence and replay support for flaky networks.
+- **Battery Efficient**: Leverages the core engine's request deduplication to minimize radio usage.
+- **Mobile Optimized**: Defaults tuned for React Native fetch and environmental constraints.
+- **Shared Architecture**: Use the exact same API definitions for both web and mobile.
+
+---
 
 ## Installation
 
@@ -17,11 +25,11 @@
 npm install @simple-api/react-native @simple-api/core @tanstack/react-query
 ```
 
+---
+
 ## Quick Start
 
-### 1. Unified API Definition
-
-One of the greatest strengths of simple-api is sharing your API definition between Web and Mobile:
+### 1. Define your API
 
 ```typescript
 // shared/api.ts
@@ -30,11 +38,9 @@ import { createApi } from "@simple-api/core";
 export const apiDefinition = createApi({
   baseUrl: "https://api.myapp.com",
   services: {
-    auth: {
-      login: { method: "POST", path: "/auth/login" },
-    },
-    content: {
-      list: { method: "GET", path: "/items" },
+    posts: {
+      list: { method: "GET", path: "/posts" },
+      create: { method: "POST", path: "/posts" },
     },
   },
 });
@@ -43,66 +49,35 @@ export const apiDefinition = createApi({
 ### 2. Mobile-Specific Adapter
 
 ```tsx
-// hooks/useApi.ts (Mobile Project)
+// hooks/useApi.ts
 import { createReactAdapter } from "@simple-api/react-native";
 import { apiDefinition } from "../shared/api";
 
 export const useMobileApi = createReactAdapter(apiDefinition);
 ```
 
-### 3. Usage in Screens
+---
+
+## Offline Queue
+
+The React Native adapter includes a powerful `createOfflineQueue` utility for handling mutations when the device is disconnected.
 
 ```tsx
-import React from "react";
-import { View, Text, ActivityIndicator } from "react-native";
-import { useMobileApi } from "../hooks/useApi";
+import { createOfflineQueue } from "@simple-api/react-native";
 
-export const FeedScreen = () => {
-  const { content } = useMobileApi();
-  const { data, isLoading, error } = content().list();
-
-  if (isLoading) return <ActivityIndicator color="#0000ff" />;
-  if (error) return <Text>Error loading items</Text>;
-
-  return (
-    <View>
-      {data.map((item) => (
-        <Text key={item.id}>{item.title}</Text>
-      ))}
-    </View>
-  );
-};
-```
-
-## Mobile Best Practices
-
-### Network Reliability
-
-Mobile networks are often flaky. We recommend using the `createRetryMiddleware` in your core definition:
-
-```typescript
-import { createRetryMiddleware } from "@simple-api/core";
-
-// In your shared api definition:
-middleware: [createRetryMiddleware({ maxRetries: 3 })];
-```
-
-### Response Caching
-
-Use `hookOptions` in your screens to control how long data stays in memory:
-
-```typescript
-content().list({
-  hookOptions: {
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    gcTime: 1000 * 60 * 60, // Keep in memory for 1 hour
-  },
+const queue = createOfflineQueue({
+  onSuccess: (id, res) => console.log("Synced!", res),
+  maxRetries: 5,
 });
+
+// Add anytime. If online, it fires. If offline, it waits.
+queue.add(() => api.posts.create({ body: { text: "Offline post" } }));
+
+// Replay manually or on network event
+queue.flush();
 ```
 
-### Request Cancellation
-
-When a user navigates away from a screen, this adapter (powered by TanStack Query) automatically cancels pending network requests using AbortController, ensuring your app stays responsive and battery-efficient.
+---
 
 ## License
 

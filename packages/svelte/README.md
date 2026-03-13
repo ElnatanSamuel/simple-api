@@ -1,15 +1,23 @@
+<p align="center">
+  <img src="../../public/logo.png" width="200" alt="simple-api logo">
+</p>
+
 # @simple-api/svelte
 
 **Production-grade TanStack Query adapter for simple-api, optimized for Svelte.**
 
-@simple-api/svelte brings the power of type-safe API definitions to the Svelte ecosystem. It leverages Svelte's native reactive stores and TanStack Query v5 to provide a high-performance, type-safe data fetching layer for your applications.
+@simple-api/svelte brings the power of type-safe API definitions to the Svelte ecosystem. It leverages Svelte's native reactive stores and TanStack Query v5 to provide a high-performance, type-safe data fetching layer.
+
+---
 
 ## Key Features
 
-- **Svelte-Native Reactivity**: Uses Svelte's $ store syntax for accessing data, loading, and error states.
+- **Svelte-Native Reactivity**: Uses Svelte's `$` store syntax for seamless data access.
 - **Auto-generated Functions**: Every endpoint becomes a reactive hook (e.g., `api.users().get()`).
-- **Extreme Type Safety**: End-to-end TypeScript inference ensures your component data scales with your API.
-- **TanStack v5 Support**: Utilizes the latest async patterns, including improved mutation management and query observation.
+- **Deep Type Safety**: End-to-end TypeScript inference ensures component data scales with your API.
+- **TanStack v5 Support**: Native support for the latest async patterns and mutation management.
+
+---
 
 ## Installation
 
@@ -17,12 +25,13 @@
 npm install @simple-api/svelte @simple-api/core @tanstack/svelte-query
 ```
 
+---
+
 ## Quick Start
 
 ### 1. Create the Adapter
 
 ```typescript
-// api.js
 import { createApi } from "@simple-api/core";
 import { createSvelteAdapter } from "@simple-api/svelte";
 
@@ -31,7 +40,6 @@ const api = createApi({
   services: {
     users: {
       get: { method: "GET", path: "/users/:id" },
-      update: { method: "PATCH", path: "/users/:id" },
     },
   },
 });
@@ -39,60 +47,30 @@ const api = createApi({
 export const useApi = createSvelteAdapter(api);
 ```
 
-### 2. Fetching Data (Queries)
-
-The adapter returns Svelte stores that you can subscribe to using the `$` prefix.
+### 2. Fetching Data
 
 ```svelte
 <script>
   import { useApi } from './api';
   const { users } = useApi();
 
-  // 'user' is a reactive Svelte store
   const user = users().get({ params: { id: '1' } });
 </script>
 
 {#if $user.isLoading}
   <p>Loading...</p>
-{:else if $error}
-  <p>Error: {$error.message}</p>
+{:else if $user.isError}
+  <p>Error: {$user.error.message}</p>
 {:else}
   <h1>{$user.data.name}</h1>
 {/if}
 ```
 
-### 3. Updating Data (Mutations)
+---
 
-Mutations are also reactive and provide an `execute` function.
+## Advanced Options
 
-```svelte
-<script>
-  import { useApi } from './api';
-  const { users } = useApi();
-
-  const mutation = users().update({
-    params: { id: '1' },
-    invalidates: ['users']
-  });
-
-  function handleSave() {
-    $mutation.execute({ name: 'New Name' });
-  }
-</script>
-
-<button
-  on:click={handleSave}
-  disabled={$mutation.isPending}
->
-  {$mutation.isPending ? 'Saving...' : 'Save Changes'}
-</button>
-```
-
-## Advanced Usage
-
-### Hook Configuration
-
-Pass standard TanStack Query options directly to refine behavior:
+Standard TanStack Query options can be passed via `hookOptions`.
 
 ```typescript
 users().get({
@@ -104,13 +82,7 @@ users().get({
 });
 ```
 
-### Shared Logic
-
-Because the adapter is built on `@simple-api/core`, all your global middlewares (logging, retries, transformers) work identically in Svelte as they do in our other framework adapters.
-
-## Why use `@simple-api/svelte`?
-
-Svelte's store model is inherently synchronous and reactive. This adapter bridges that gap with the asynchronous world of networking, providing a clean API that feels native to Svelte while maintaining the rigor of a full query engine.
+---
 
 ## License
 
